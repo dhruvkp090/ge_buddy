@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Focus Helper",
+  "version": "1.0",
+  "description": "A Chrome extension to help users avoid distractions",
+  "permissions": [
+    "storage",
+    "tabs",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "action": {
+    "default_popup": "build/index.html",
+    "default_icon": {
+      "16": "picture.png",
+      "48": "picture.png",
+      "128": "picture.png"
+    }
+  },
+  "icons": {
+    "16": "picture.png",
+    "48": "picture.png",
+    "128": "picture.png"
+  },
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "web_accessible_resources": [{
+    "resources": ["build/redirect.html"],
+    "matches": ["<all_urls>"]
+  }]
+}
