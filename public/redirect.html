@@ -21,6 +21,9 @@
       .work-bg {
         background: linear-gradient(to right, #3b82f6, #14b8a6, #22c55e);
       }
+      .social-bg {
+        background: linear-gradient(to right, #f97316, #ec4899, #6366f1);
+      }
       h1 {
         font-size: 8rem;
         font-weight: bold;
@@ -34,6 +37,17 @@
         margin-bottom: 2rem;
         opacity: 0.9;
       }
+      .timer {
+        font-size: 1.5rem;
+        color: white;
+        margin-bottom: 2rem;
+        opacity: 0.8;
+      }
+      .purpose-selection {
+        margin-bottom: 2rem;
+        display: flex;
+        gap: 1rem;
+      }
       button {
         background: white;
         border: none;
@@ -45,9 +59,25 @@
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         transition: all 0.2s;
       }
-      button:hover {
+      button:not(:disabled):hover {
         transform: scale(1.05);
         box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button.fun-btn {
+        color: #8b5cf6;
+      }
+      button.work-btn {
+        color: #14b8a6;
+      }
+      button.casual-btn {
+        color: #f97316;
+      }
+      button.networking-btn {
+        color: #ec4899;
       }
       @keyframes bounce {
         0%, 100% { transform: translateY(0); }
@@ -59,7 +89,16 @@
     <div id="container" class="container">
       <h1 id="message"></h1>
       <div id="subMessage" class="message"></div>
-      <button id="continueBtn"></button>
+      <div id="purposeSelection" class="purpose-selection" style="display: none;">
+        <button id="funBtn" class="fun-btn">For Fun</button>
+        <button id="workBtn" class="work-btn">For Work</button>
+      </div>
+      <div id="socialPurposeSelection" class="purpose-selection" style="display: none;">
+        <button id="casualBtn" class="casual-btn">Casual Use</button>
+        <button id="networkingBtn" class="networking-btn">Networking</button>
+      </div>
+      <div id="timer" class="timer"></div>
+      <button id="continueBtn" style="display: none;"></button>
     </div>
     <script src="redirect.js"></script>
   </body>

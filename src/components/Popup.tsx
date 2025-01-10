@@ -4,8 +4,13 @@ import { WebsiteCategories } from "../types/website";
 
 const Popup: React.FC = () => {
   const [currentUrl, setCurrentUrl] = useState<string>("");
-  const [category, setCategory] = useState<"fun" | "funAndWork" | null>(null);
+  const [category, setCategory] = useState<
+    "fun" | "funAndWork" | "socialMedia" | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [purpose, setPurpose] = useState<string | null>(null);
+  const [blockTimeLeft, setBlockTimeLeft] = useState<number | null>(null);
 
   useEffect(() => {
     // Get current tab URL
@@ -18,27 +23,82 @@ const Popup: React.FC = () => {
         const categories = stored.websiteCategories || {
           fun: [],
           funAndWork: [],
+          socialMedia: [],
         };
-        const domain = getDomain(tabs[0].url);
+        const urlDomain = getDomain(tabs[0].url);
 
-        if (domain) {
+        if (urlDomain) {
           if (
             categories.fun.some(
-              (site: { url: string }) => getDomain(site.url) === domain
+              (site: { url: string }) => getDomain(site.url) === urlDomain
             )
           ) {
             setCategory("fun");
           } else if (
             categories.funAndWork.some(
-              (site: { url: string }) => getDomain(site.url) === domain
+              (site: { url: string }) => getDomain(site.url) === urlDomain
             )
           ) {
             setCategory("funAndWork");
+          } else if (
+            categories.socialMedia.some(
+              (site: { url: string }) => getDomain(site.url) === urlDomain
+            )
+          ) {
+            setCategory("socialMedia");
           }
+
+          // Check if site is temporarily allowed and get expiry time
+          const hostname = new URL(tabs[0].url).hostname;
+          chrome.runtime.sendMessage(
+            { type: "CHECK_ALLOWANCE", domain: hostname },
+            (response) => {
+              if (response) {
+                if (response.allowed) {
+                  const timeLeftMs = response.expiry - Date.now();
+                  setTimeLeft(Math.max(0, Math.floor(timeLeftMs / 1000)));
+                  setPurpose(response.purpose);
+                } else if (response.nextAllowedTime) {
+                  const blockTimeLeftMs = response.nextAllowedTime - Date.now();
+                  setBlockTimeLeft(
+                    Math.max(0, Math.floor(blockTimeLeftMs / 1000))
+                  );
+                }
+              }
+            }
+          );
         }
       }
     });
   }, []);
+
+  // Update countdown timer
+  useEffect(() => {
+    if (timeLeft === null && blockTimeLeft === null) return;
+
+    const timer = setInterval(() => {
+      if (timeLeft !== null) {
+        setTimeLeft((prev) => {
+          if (prev === null || prev <= 0) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }
+      if (blockTimeLeft !== null) {
+        setBlockTimeLeft((prev) => {
+          if (prev === null || prev <= 0) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft, blockTimeLeft]);
 
   const addToCategory = async (categoryType: keyof WebsiteCategories) => {
     const formattedUrl = formatUrl(currentUrl);
@@ -51,6 +111,7 @@ const Popup: React.FC = () => {
     const categories: WebsiteCategories = stored.websiteCategories || {
       fun: [],
       funAndWork: [],
+      socialMedia: [],
     };
 
     // Check if URL already exists in any category
@@ -58,7 +119,8 @@ const Popup: React.FC = () => {
     if (domain) {
       if (
         categories.fun.some((site) => getDomain(site.url) === domain) ||
-        categories.funAndWork.some((site) => getDomain(site.url) === domain)
+        categories.funAndWork.some((site) => getDomain(site.url) === domain) ||
+        categories.socialMedia.some((site) => getDomain(site.url) === domain)
       ) {
         setError("This website is already in one of your lists");
         return;
@@ -77,12 +139,16 @@ const Popup: React.FC = () => {
     setError(null);
   };
 
+  const formatTimeLeft = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+  };
+
   const openSettings = () => {
-    // Open settings in a new tab
     chrome.tabs.create({
       url: chrome.runtime.getURL("build/index.html#/settings"),
     });
-    // Close the popup
     window.close();
   };
 
@@ -101,39 +167,102 @@ const Popup: React.FC = () => {
         </div>
       )}
 
-      {category ? (
+      {category && (
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Category</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            Website Category
+          </h2>
           <div
             className={`px-4 py-2 rounded-lg ${
               category === "fun"
                 ? "bg-purple-100 text-purple-700"
-                : "bg-teal-100 text-teal-700"
+                : category === "funAndWork"
+                ? "bg-teal-100 text-teal-700"
+                : "bg-orange-100 text-orange-700"
             }`}
           >
-            {category === "fun" ? "Fun Website" : "Fun & Work Website"}
+            {category === "fun"
+              ? "Fun Website"
+              : category === "funAndWork"
+              ? "Fun & Work Website"
+              : "Social Media Website"}
           </div>
         </div>
-      ) : (
-        <div className="mb-6 space-y-2">
-          <button
-            onClick={() => addToCategory("fun")}
-            className="w-full bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors duration-200"
+      )}
+
+      {timeLeft !== null && timeLeft > 0 ? (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            Access Time Remaining
+          </h2>
+          <div
+            className={`px-4 py-3 rounded-lg ${
+              category === "fun"
+                ? "bg-purple-100 text-purple-700"
+                : category === "funAndWork"
+                ? "bg-teal-100 text-teal-700"
+                : "bg-orange-100 text-orange-700"
+            }`}
           >
-            Add to Fun Websites
-          </button>
-          <button
-            onClick={() => addToCategory("funAndWork")}
-            className="w-full bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors duration-200"
-          >
-            Add to Fun & Work Websites
-          </button>
+            <div className="text-3xl font-bold mb-1">
+              {formatTimeLeft(timeLeft)}
+            </div>
+            <div className="text-sm opacity-75">
+              Using for {purpose || "unknown purpose"}
+            </div>
+          </div>
+        </div>
+      ) : category && blockTimeLeft !== null && blockTimeLeft > 0 ? (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            Time Until Access
+          </h2>
+          <div className="px-4 py-3 rounded-lg bg-gray-100 text-gray-700">
+            <div className="text-3xl font-bold mb-1">
+              {formatTimeLeft(blockTimeLeft)}
+            </div>
+            <div className="text-sm opacity-75">
+              Until you can access this website again
+            </div>
+          </div>
+        </div>
+      ) : category ? (
+        <div className="mb-6 p-3 bg-gray-100 text-gray-600 rounded-lg">
+          No active timer for this website
+        </div>
+      ) : null}
+
+      {!category && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            Add to Category
+          </h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => addToCategory("fun")}
+              className="px-4 py-2 rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+            >
+              Fun
+            </button>
+            <button
+              onClick={() => addToCategory("funAndWork")}
+              className="px-4 py-2 rounded-lg bg-teal-100 text-teal-700 hover:bg-teal-200 transition-colors"
+            >
+              Fun & Work
+            </button>
+            <button
+              onClick={() => addToCategory("socialMedia")}
+              className="px-4 py-2 rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors"
+            >
+              Social Media
+            </button>
+          </div>
         </div>
       )}
 
       <button
         onClick={openSettings}
-        className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200"
+        className="w-full mt-4 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors duration-200"
       >
         Open Settings
       </button>

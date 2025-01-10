@@ -6,7 +6,9 @@
   "permissions": [
     "storage",
     "tabs",
-    "webNavigation"
+    "webNavigation",
+    "scripting",
+    "alarms"
   ],
   "host_permissions": [
     "http://*/*",
