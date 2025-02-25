@@ -1,6 +1,9 @@
 export interface Website {
   url: string;
+  limitType?: LimitType;
 }
+
+export type LimitType = "time" | "video";
 
 export interface WebsiteCategories {
   fun: Website[];
@@ -11,6 +14,8 @@ export interface WebsiteCategories {
 export interface TimerSettings {
   waitTime: number;
   accessDuration: number;
+  maxVideoChanges?: number;
+  defaultLimitType: LimitType;
 }
 
 export interface CategorySettings {

@@ -43,7 +43,7 @@
         margin-bottom: 2rem;
         opacity: 0.8;
       }
-      .purpose-selection {
+      .purpose-selection, .limit-selection {
         margin-bottom: 2rem;
         display: flex;
         gap: 1rem;
@@ -79,6 +79,12 @@
       button.networking-btn {
         color: #ec4899;
       }
+      button.time-btn {
+        color: #3b82f6;
+      }
+      button.video-btn {
+        color: #f97316;
+      }
       @keyframes bounce {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-25px); }
@@ -96,6 +102,10 @@
       <div id="socialPurposeSelection" class="purpose-selection" style="display: none;">
         <button id="casualBtn" class="casual-btn">Casual Use</button>
         <button id="networkingBtn" class="networking-btn">Networking</button>
+      </div>
+      <div id="limitSelection" class="limit-selection" style="display: none;">
+        <button id="timeBtn" class="time-btn">Time Limit</button>
+        <button id="videoBtn" class="video-btn">Video Changes Limit</button>
       </div>
       <div id="timer" class="timer"></div>
       <button id="continueBtn" style="display: none;"></button>

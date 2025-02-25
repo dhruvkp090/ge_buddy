@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getDomain, formatUrl } from "../utils/urlUtils";
-import { WebsiteCategories } from "../types/website";
+import { WebsiteCategories, LimitType } from "../types/website";
 
 const Popup: React.FC = () => {
   const [currentUrl, setCurrentUrl] = useState<string>("");
@@ -11,6 +11,9 @@ const Popup: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [purpose, setPurpose] = useState<string | null>(null);
   const [blockTimeLeft, setBlockTimeLeft] = useState<number | null>(null);
+  const [limitType, setLimitType] = useState<LimitType | null>(null);
+  const [videoCount, setVideoCount] = useState<number | null>(null);
+  const [maxVideoChanges, setMaxVideoChanges] = useState<number | null>(null);
 
   useEffect(() => {
     // Get current tab URL
@@ -19,12 +22,16 @@ const Popup: React.FC = () => {
         setCurrentUrl(tabs[0].url);
 
         // Check category
-        const stored = await chrome.storage.local.get("websiteCategories");
+        const stored = await chrome.storage.local.get([
+          "websiteCategories",
+          "categorySettings",
+        ]);
         const categories = stored.websiteCategories || {
           fun: [],
           funAndWork: [],
           socialMedia: [],
         };
+        const settings = stored.categorySettings;
         const urlDomain = getDomain(tabs[0].url);
 
         if (urlDomain) {
@@ -34,18 +41,25 @@ const Popup: React.FC = () => {
             )
           ) {
             setCategory("fun");
+            if (settings?.fun) {
+              setMaxVideoChanges(settings.fun.maxVideoChanges);
+            }
           } else if (
             categories.funAndWork.some(
               (site: { url: string }) => getDomain(site.url) === urlDomain
             )
           ) {
             setCategory("funAndWork");
+            // Max video changes will be set when we get the purpose
           } else if (
             categories.socialMedia.some(
               (site: { url: string }) => getDomain(site.url) === urlDomain
             )
           ) {
             setCategory("socialMedia");
+            if (settings?.socialMedia) {
+              setMaxVideoChanges(settings.socialMedia.maxVideoChanges);
+            }
           }
 
           // Check if site is temporarily allowed and get expiry time
@@ -55,9 +69,23 @@ const Popup: React.FC = () => {
             (response) => {
               if (response) {
                 if (response.allowed) {
-                  const timeLeftMs = response.expiry - Date.now();
-                  setTimeLeft(Math.max(0, Math.floor(timeLeftMs / 1000)));
+                  setLimitType(response.limitType);
                   setPurpose(response.purpose);
+
+                  if (response.limitType === "time") {
+                    const timeLeftMs = response.expiry - Date.now();
+                    setTimeLeft(Math.max(0, Math.floor(timeLeftMs / 1000)));
+                  } else if (response.limitType === "video") {
+                    setVideoCount(response.videoCount || 0);
+                    // Set max video changes based on purpose for funAndWork sites
+                    if (category === "funAndWork" && settings?.funAndWork) {
+                      setMaxVideoChanges(
+                        response.purpose === "work"
+                          ? settings.funAndWork.work.maxVideoChanges
+                          : settings.funAndWork.fun.maxVideoChanges
+                      );
+                    }
+                  }
                 } else if (response.nextAllowedTime) {
                   const blockTimeLeftMs = response.nextAllowedTime - Date.now();
                   setBlockTimeLeft(
@@ -181,19 +209,28 @@ const Popup: React.FC = () => {
                 : "bg-orange-100 text-orange-700"
             }`}
           >
-            {category === "fun"
-              ? "Fun Website"
-              : category === "funAndWork"
-              ? "Fun & Work Website"
-              : "Social Media Website"}
+            <div>
+              {category === "fun"
+                ? "Fun Website"
+                : category === "funAndWork"
+                ? "Fun & Work Website"
+                : "Social Media Website"}
+            </div>
+            {limitType && (
+              <div className="text-sm mt-1 opacity-75">
+                {limitType === "time"
+                  ? "Time Limit Active"
+                  : "Video Changes Limit Active"}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {timeLeft !== null && timeLeft > 0 ? (
+      {/* {category && limitType === "time" && timeLeft !== null && timeLeft > 0 ? (
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-2">
-            Access Time Remaining
+            Time Remaining
           </h2>
           <div
             className={`px-4 py-3 rounded-lg ${
@@ -209,6 +246,28 @@ const Popup: React.FC = () => {
             </div>
             <div className="text-sm opacity-75">
               Using for {purpose || "unknown purpose"}
+            </div>
+          </div>
+        </div>
+      ) : category && limitType === "video" && videoCount !== null ? (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            Video Changes
+          </h2>
+          <div
+            className={`px-4 py-3 rounded-lg ${
+              category === "fun"
+                ? "bg-purple-100 text-purple-700"
+                : category === "funAndWork"
+                ? "bg-teal-100 text-teal-700"
+                : "bg-orange-100 text-orange-700"
+            }`}
+          >
+            <div className="text-3xl font-bold mb-1">
+              {videoCount} / {maxVideoChanges}
+            </div>
+            <div className="text-sm opacity-75">
+              Video changes used{purpose ? ` (${purpose})` : ""}
             </div>
           </div>
         </div>
@@ -228,9 +287,9 @@ const Popup: React.FC = () => {
         </div>
       ) : category ? (
         <div className="mb-6 p-3 bg-gray-100 text-gray-600 rounded-lg">
-          No active timer for this website
+          No active limits for this website
         </div>
-      ) : null}
+      ) : null} */}
 
       {!category && (
         <div className="mb-6">

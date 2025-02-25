@@ -10,6 +10,9 @@ const subMessage = document.getElementById('subMessage');
 const purposeSelection = document.getElementById('purposeSelection');
 const funBtn = document.getElementById('funBtn');
 const workBtn = document.getElementById('workBtn');
+const limitSelection = document.getElementById('limitSelection');
+const timeBtn = document.getElementById('timeBtn');
+const videoBtn = document.getElementById('videoBtn');
 const timer = document.getElementById('timer');
 const continueBtn = document.getElementById('continueBtn');
 
@@ -17,52 +20,60 @@ let settings = {
   fun: {
     waitTime: 5,
     accessDuration: 5,
+    defaultLimitType: 'time',
   },
   funAndWork: {
     fun: {
       waitTime: 5,
       accessDuration: 5,
+      defaultLimitType: 'time',
     },
     work: {
       waitTime: 2,
       accessDuration: 30,
+      defaultLimitType: 'time',
     },
   },
   socialMedia: {
     waitTime: 15,
     accessDuration: 5,
+    defaultLimitType: 'time',
   },
 };
 
 let countdown = null;
 let selectedPurpose = null;
+let selectedLimitType = null;
 
 // Load settings from storage
 chrome.storage.local.get(['categorySettings'], (result) => {
   console.log("Loaded settings:", result.categorySettings);
   if (result.categorySettings) {
-    // Merge with default settings to ensure all properties exist
     settings = {
       fun: {
         waitTime: 5,
         accessDuration: 5,
+        defaultLimitType: 'time',
         ...result.categorySettings.fun
       },
       funAndWork: {
         fun: {
           waitTime: 5,
           accessDuration: 5,
+          defaultLimitType: 'time',
           ...result.categorySettings.funAndWork?.fun
         },
         work: {
           waitTime: 2,
           accessDuration: 30,
+          defaultLimitType: 'time',
           ...result.categorySettings.funAndWork?.work
         }
       },
       socialMedia: {
         waitTime: 15,
         accessDuration: 5,
+        defaultLimitType: 'time',
         ...result.categorySettings.socialMedia
       }
     };
@@ -73,6 +84,11 @@ chrome.storage.local.get(['categorySettings'], (result) => {
   setupPage();
 });
 
+function showLimitSelection() {
+  limitSelection.style.display = 'flex';
+  subMessage.textContent = 'How would you like to limit your usage?';
+}
+
 function setupPage() {
   console.log("Setting up page for type:", type);
   if (type === 'fun') {
@@ -81,7 +97,8 @@ function setupPage() {
     message.textContent = 'STOP!';
     subMessage.textContent = 'This is a Fun Website';
     continueBtn.style.color = '#8b5cf6';
-    startTimer(settings.fun.waitTime);
+    selectedPurpose = 'fun';
+    showLimitSelection();
   } else if (type === 'funAndWork') {
     console.log("Setting up fun & work mode");
     container.classList.add('work-bg');
@@ -95,9 +112,7 @@ function setupPage() {
     subMessage.textContent = 'This is a Social Media Website';
     continueBtn.style.color = '#f97316';
     selectedPurpose = 'social';
-    const waitTime = settings.socialMedia.waitTime;
-    console.log("Social media wait time:", waitTime);
-    startTimer(waitTime);
+    showLimitSelection();
   }
 }
 
@@ -106,10 +121,9 @@ function startTimer(waitTime) {
   let timeLeft = parseInt(waitTime);
   console.log("Parsed timeLeft:", timeLeft);
   
-  // If timeLeft is NaN, use default social media wait time
   if (isNaN(timeLeft)) {
     console.log("Invalid wait time, using default");
-    timeLeft = settings.socialMedia.waitTime || 15; // Fallback to 15 seconds if settings not loaded
+    timeLeft = settings.socialMedia.waitTime || 15;
   }
   
   continueBtn.disabled = true;
@@ -120,7 +134,6 @@ function startTimer(waitTime) {
     clearInterval(countdown);
   }
   
-  // Initial display
   timer.textContent = `You can continue in ${timeLeft} seconds`;
   
   countdown = setInterval(() => {
@@ -143,17 +156,34 @@ function startTimer(waitTime) {
 funBtn.onclick = () => {
   selectedPurpose = 'fun';
   purposeSelection.style.display = 'none';
-  continueBtn.style.display = 'block';
   continueBtn.style.color = '#8b5cf6';
-  startTimer(settings.funAndWork.fun.waitTime);
+  showLimitSelection();
 };
 
 workBtn.onclick = () => {
   selectedPurpose = 'work';
   purposeSelection.style.display = 'none';
-  continueBtn.style.display = 'block';
   continueBtn.style.color = '#14b8a6';
-  startTimer(settings.funAndWork.work.waitTime);
+  showLimitSelection();
+};
+
+// Handle limit type selection
+timeBtn.onclick = () => {
+  selectedLimitType = 'time';
+  limitSelection.style.display = 'none';
+  const currentSettings = type === 'funAndWork' 
+    ? settings.funAndWork[selectedPurpose] 
+    : settings[type];
+  startTimer(currentSettings.waitTime);
+};
+
+videoBtn.onclick = () => {
+  selectedLimitType = 'video';
+  limitSelection.style.display = 'none';
+  const currentSettings = type === 'funAndWork' 
+    ? settings.funAndWork[selectedPurpose] 
+    : settings[type];
+  startTimer(currentSettings.waitTime);
 };
 
 continueBtn.textContent = 'Continue to Website';
@@ -168,6 +198,7 @@ continueBtn.onclick = () => {
         type: 'ALLOW_TEMPORARILY', 
         url: originalUrl,
         purpose: selectedPurpose || 'fun',
+        limitType: selectedLimitType || 'time',
       },
       (response) => {
         console.log("Allowance response:", response);
